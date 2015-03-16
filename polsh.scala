@@ -2,13 +2,12 @@ import scala.io.Source
 
 
 case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=Map()) {
+  println(stack.toList.reverse)
+  println(memory)
+  println()
 
   def push(in: String): PolshCpu = {
-    val q = PolshCpu(in #:: stack, memory)
-    println(q.stack.toList.reverse)
-    // println(q.memory)
-    // println()
-    q.execute
+    PolshCpu(in #:: stack, memory).execute
   }
   
   def push(in: Stream[String]): PolshCpu =
@@ -25,21 +24,18 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=
 
   def execute: PolshCpu = {
     stack match {
-      case s #:: _ if opsArit.isDefinedAt(s) =>
-        drop(1) runFuncArit opsArit(s)
+      case s #:: _ if arithmetics.isDefinedAt(s) =>
+        drop(1) run2op opArit(arithmetics(s))
       case s #:: _ if opsMemo.contains(s) =>
         drop(1) funcMem s
       case _ => this
     }
   }
+  
+  def opArit(f: (Int,Int)=>Int): PolshCpu=>String=>String=>PolshCpu =
+    {c=>op1=>op2=> c push f(op2.toInt, op1.toInt).toString}
 
-  def runFuncArit(f: (Int,Int)=>Int) =
-    stack match {
-      case op2 #:: op1 #:: _ => drop(2) push f(op1.toInt, op2.toInt).toString
-      case _ => this
-    }
-
-  val opsArit: PartialFunction[String, (Int, Int)=>Int] = {
+  val arithmetics: PartialFunction[String, (Int, Int)=>Int] = {
     case "+" => (_+_)
     case "-" => (_-_)
     case "/" => (_/_)
@@ -49,10 +45,21 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=
   val opsMemo = Set("store", "fetch")
 
   def funcMem(fname: String) = fname match {
-    case "store" => drop(2) store (stack(0) -> stack(1))
-    case "fetch" => drop(1) push memory(stack(0))
+    case "store" => run2op {c=>op1=>op2=> c store (op1 -> op2)}
+    case "fetch" => run1op {c=>op1=> c push memory(op1)}
   }
-  
+
+  def run2op(f: PolshCpu=>String=>String=>PolshCpu): PolshCpu =
+    stack match {
+      case op1 #:: op2 #:: _ => f(drop(2))(op1)(op2)
+      case _ => this
+    }
+
+  def run1op(f: PolshCpu=>String=>PolshCpu): PolshCpu =
+    stack match {
+      case op1 #:: _ => f(drop(1))(op1)
+      case _ => this
+    }  
 }
 
 object Polsh extends App {
