@@ -13,7 +13,7 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=
   implicit def iop0arg(f: PolshCpu=>PolshCpu) = Op0Arg(f)
 
 
-  def verbose = {println(stack.toList.reverse); println(memory); println(); this}
+  def verbose = {println(stack.toList.reverse +" "+ memory); this}
 
   def push(in: String): PolshCpu = PolshCpu(in #:: stack, memory).verbose.execute
 
