@@ -2,9 +2,6 @@ import scala.io.Source
 
 
 case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=Map()) {
-  println(stack.toList.reverse)
-  println(memory)
-  println()
 
   def push(in: String): PolshCpu = {
     PolshCpu(in #:: stack, memory).execute
@@ -23,11 +20,16 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=
   def store(kv: (String, String)) = PolshCpu(stack, memory + kv)
 
   def execute: PolshCpu = {
+    println(stack.toList.reverse)
+    println(memory)
+    println()
+
     stack match {
       case s #:: _ if arithmetics.isDefinedAt(s) =>
         drop(1) run2op opArit(arithmetics(s))
-      case s #:: _ if opsMemo.contains(s) =>
-        drop(1) funcMem s
+      case "dup" #:: _ => drop(1) run1op {c=>op1=> c push Stream(op1, op1)}
+      case "store" #:: _ => drop(1) run2op {c=>op1=>op2=> c store (op1 -> op2)}
+      case "load" #:: _ => drop(1) run1op {c=>op1=> c push memory(op1)}
       case _ => this
     }
   }
@@ -44,14 +46,16 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, String]=
 
   val opsMemo = Set("store", "fetch")
 
-  def funcMem(fname: String) = fname match {
-    case "store" => run2op {c=>op1=>op2=> c store (op1 -> op2)}
-    case "fetch" => run1op {c=>op1=> c push memory(op1)}
-  }
+  // def run2op(f: PolshCpu=>String=>String=>PolshCpu): PolshCpu =
+  //   stack match {
+  //     case op1 #:: op2 #:: _ => f(drop(2))(op1)(op2)
+  //     case _ => this
+  //   }
 
   def run2op(f: PolshCpu=>String=>String=>PolshCpu): PolshCpu =
     stack match {
-      case op1 #:: op2 #:: _ => f(drop(2))(op1)(op2)
+      // case op1 #:: op2 #:: _ => f(drop(2))(op1)(op2)
+      case op1 #:: _ => drop(1) run1op {c=>op2=> f(c)(op1)(op2) }
       case _ => this
     }
 
