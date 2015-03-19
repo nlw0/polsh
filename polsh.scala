@@ -6,12 +6,13 @@ case class Op2Arg(f: String=>String=>PolshCpu=>PolshCpu) extends PolshOperation
 case class Op1Arg(f: String=>PolshCpu=>PolshCpu) extends PolshOperation
 case class Op0Arg(f: PolshCpu=>PolshCpu) extends PolshOperation
 
+case class OpSeq(l: Stream[String])
+
 case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, Any]=Map(), gulpMode:Boolean=false) {
 
   implicit def iop2arg(f: String=>String=>PolshCpu=>PolshCpu) = Op2Arg(f)
   implicit def iop1arg(f: String=>PolshCpu=>PolshCpu) = Op1Arg(f)
   implicit def iop0arg(f: PolshCpu=>PolshCpu) = Op0Arg(f)
-
 
   def verbose = {println(stack.toList.reverse +" "+ memory); this}
 
@@ -35,11 +36,16 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, Any]=Map
       case "load" #:: _ => drop(1) runOp Op1Arg(op1=>c=> c push memory(op1).toString)
       case "[" #:: _ => setGulpMode
       case op #:: _ if arith.isDefinedAt(op) => drop(1) runOp opArith(arith(op))
+      case op #:: _ if memory contains op => memory(op) match {
+        case OpSeq(sub) =>
+          drop(1).push(for (s <- sub.toStream) yield s)
+        case _ => this
+      }
       case _ => this
     }
   } else {
     stack match {
-      case label #:: "]" #:: _ => drop(2).gulpTokens(List[String](), label)
+      case label #:: "]" #:: _ => drop(2).gulpTokens(Stream[String](), label)
       case _ => this
     }
   }
@@ -51,9 +57,9 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, Any]=Map
     case _ => this
   }
 
-  def opArith(f: (Int,Int)=>Int) = Op2Arg(op1=>op2=>c=> c push f(op2.toInt, op1.toInt).toString)
+  def opArith(f: (Long,Long)=>Long) = Op2Arg(op1=>op2=>c=> c push f(op2.toLong, op1.toLong).toString)
 
-  val arith: PartialFunction[String,(Int,Int)=>Int] = {
+  val arith: PartialFunction[String,(Long,Long)=>Long] = {
     case "+" => (_ + _)
     case "-" => (_ - _)
     case "/" => (_ / _)
@@ -62,9 +68,9 @@ case class PolshCpu(stack: Stream[String]=Stream(), memory: Map[String, Any]=Map
 
   def setGulpMode = PolshCpu(stack, memory, gulpMode=true)
 
-  def gulpTokens(acc: List[String], label: String): PolshCpu = stack match {
-    case "[" #:: ss => PolshCpu(ss, memory + (label -> acc))
-    case s #:: ss => PolshCpu(ss, memory).gulpTokens(s :: acc, label)
+  def gulpTokens(acc: Stream[String], label: String): PolshCpu = stack match {
+    case "[" #:: ss => PolshCpu(ss, memory + (label -> OpSeq(acc)))
+    case s #:: ss => PolshCpu(ss, memory).gulpTokens(s #:: acc, label)
   }
 
 }
@@ -73,6 +79,7 @@ object Polsh extends App {
   def inputTokens: Iterator[String] = Source.stdin.getLines flatMap (_.split(" "))
 
   val qq = PolshCpu()
+
   println(qq.push(inputTokens.toStream))
 }
 
