@@ -1,5 +1,5 @@
 # polsh
-polsh is a shell and scripting language based on reverse polish notation, and developed in Scala.
+polsh is a shell and scripting language based on reverse polish notation, and developed in Scala. Just a toy project, not sure it is going anywhere.
 
 ```
 > echo "13 x store x load 1 x load - * x store" | scala polsh.scala 
